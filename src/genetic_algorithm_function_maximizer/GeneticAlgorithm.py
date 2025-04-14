@@ -25,24 +25,24 @@ class GeneticAlgorithm:
         self.tournament_size = tournament_size
         self.crossover_type = crossover_type
         self.decimal_precision = 3
+        self.population = self.initialize_population()
+        self.current_population = self.population
+        self.x1_min = -3.1
+        self.x1_max = 12.1
+        self.x2_min = 4.1
+        self.x2_max = 5.8
 
-    def real_function(self, x1, x2):
+    def real_function(self, population):
         """
         Função real a ser maximizada.
         """
-        return 21.5 + x1 * np.sin(4 * np.pi * x1) + x2 * np.sin(20 * np.pi * x2)
+        return 21.5 + population[:, 0] * np.sin(4 * np.pi * population[:, 0]) + population[:, 1] * np.sin(20 * np.pi * population[:, 1])
 
     def initialize_population(self):
         """
         Cria a população inicial de indivíduos.
         """
-
-        x1_min = -3.1
-        x1_max = 12.1
-        x2_min = 4.1
-        x2_max = 5.8
-
-        bounds = [(x1_min, x1_max), (x2_min, x2_max)]  # limites de x1 e x2
+        bounds = [(self.x1_min, self.x1_max), (self.x2_min, self.x2_max)]  # limites de x1 e x2
 
         # Inicialização
         population = np.array([
@@ -52,29 +52,36 @@ class GeneticAlgorithm:
 
         return population
     
-    def decode(self, individual):
-        """
-        Converte a representação do indivíduo para os valores reais.
-        """
-        pass
-
-    def fitness(self, individual):
+    def fitness(self, individuals_array):
         """
         Calcula a aptidão (fitness) do indivíduo.
         """
-        pass
+        return self.real_function(individuals_array)
 
     def selection(self):
         """
         Seleciona os indivíduos para reprodução, com base no método definido.
         """
-        pass
+        # Seleciona o método de seleção
+        if self.selection_method == 'roulette':
+            # Seleciona os indivíduos para reprodução
+            return self.roulette_selection()
+        elif self.selection_method == 'tournament':
+            # Seleciona os indivíduos para reprodução
+            return self.tournament_selection()
 
     def roulette_selection(self):
         """
         Implementa a seleção por roleta.
         """
-        pass
+        # Calcula a aptidão de cada indivíduo
+        fitness_values = self.fitness(self.current_population)
+        # Calcula a probabilidade de cada indivíduo
+        probabilities = fitness_values / np.sum(fitness_values)
+        # Seleciona os indivíduos para reprodução
+        selected_individuals = np.random.choice(len(self.current_population), size=self.population_size, p=probabilities)
+        # Retorna os indivíduos selecionados
+        return self.current_population[selected_individuals]
 
     def tournament_selection(self):
         """
