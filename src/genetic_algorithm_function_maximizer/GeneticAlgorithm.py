@@ -4,7 +4,7 @@ import random
 
 class GeneticAlgorithm:
     def __init__(self, population_size, bounds, mutation_rate, crossover_rate, elitism_count = None, max_known_value = None,
-                 selection_method='roulette', tournament_size=None, crossover_type='one_point', decimal_precision=1):
+                 selection_method='roulette', tournament_size=None, crossover_type='single_point', decimal_precision=1):
         """
         Inicializa os parâmetros do algoritmo genético.
 
@@ -14,7 +14,7 @@ class GeneticAlgorithm:
         :param elitism_count: Número de indivíduos a serem selecionados para a próxima geração.
         :param selection_method: Método de seleção (roulette ou tournament).
         :param tournament_size: Tamanho do torneio (se selection_method for tournament).
-        :param crossover_type: Tipo de cruzamento (one_point ou two_point).
+        :param crossover_type: Tipo de cruzamento (single_point ou double_point).
         :param max_known_value: Valor máximo conhecido da função, nem sempre é conhecido.
         """
 
@@ -119,10 +119,10 @@ class GeneticAlgorithm:
         """
 
         # Fazer dessa forma habilita que o crossover ajuste o domínio para o problema independentemente da quantidade de variáveis
-        # lower_bounds = np.array([low for low, _ in self.bounds]) 
-        # upper_bounds = np.array([high for _, high in self.bounds])
+        lower_bounds = np.array([low for low, _ in self.bounds]) 
+        upper_bounds = np.array([high for _, high in self.bounds])
 
-        return np.clip(individual, self.bounds[0], self.bounds[1])
+        return np.clip(individual, lower_bounds, upper_bounds)
     
     def single_point_binary_crossover(self, parent1, parent2):
         """
@@ -207,7 +207,7 @@ class GeneticAlgorithm:
 
         return self.clip_individual(np.array(child))
 
-    def selection(self):
+    def selection(self, fitness_values):
         """
         Seleciona os indivíduos para reprodução, com base no método definido.
         """
@@ -216,10 +216,10 @@ class GeneticAlgorithm:
         # Seleciona o método de seleção
         if self.selection_method == 'roulette':
             # Seleciona os indivíduos para reprodução
-            self.current_population = self.roulette_selection()
+            self.current_population = self.roulette_selection(fitness_values)
         elif self.selection_method == 'tournament':
             # Seleciona os indivíduos para reprodução
-            self.current_population = self.tournament_selection()
+            self.current_population = self.tournament_selection(fitness_values)
 
     def roulette_selection(self, fitness_values):
         """
@@ -251,10 +251,10 @@ class GeneticAlgorithm:
             parent1 = self.current_population[i]
             parent2 = self.current_population[i+1]
             if random.random() < self.crossover_rate:
-                if self.crossover_type == 'one_point':
+                if self.crossover_type == 'single_point':
                     child1 = self.single_point_binary_crossover(parent1, parent2)
                     child2 = self.single_point_binary_crossover(parent2, parent1)       
-                elif self.crossover_type == 'two_point':
+                elif self.crossover_type == 'double_point':
                     child1 = self.double_point_binary_crossover(parent1, parent2)
                     child2 = self.double_point_binary_crossover(parent2, parent1)
                 else:
@@ -277,8 +277,6 @@ class GeneticAlgorithm:
         for idx, individual in enumerate(self.current_population):
             for i in range(len(individual)):
                 if random.random() < self.mutation_rate:
-                    print(f"Mutando o indivíduo {idx} na posição {i}")
-                    print(f"Individual original: {individual}")
                     binary_individual = list(self.real_to_bin(
                         individual[i], 
                         self.bounds[i][0], 
@@ -289,7 +287,6 @@ class GeneticAlgorithm:
                     binary_individual = ''.join(binary_individual)
                     individual[i] = self.bin_to_real(binary_individual, self.bounds[i][0])
                     individual = self.clip_individual(individual)
-                    print(f"Individual mutado: {individual}")
                     self.current_population[idx] = individual
         
 
@@ -301,16 +298,21 @@ class GeneticAlgorithm:
         :return: O melhor indivíduo encontrado.
         """
         self.current_population = self.initialize_population()
+        print(f"População inicial: {self.current_population}")
+        print(f"Aptidão da população inicial: {self.fitness()}")
         for _ in range(generations):
             print(f"Geração {_ + 1}")
             
             # Calcula a aptidão de cada indivíduo, 
             fitness_values = self.fitness()
+            print(f"Aptidão da população: {fitness_values}")
 
             # Faz a seleção, crossover e mutação
             self.selection(fitness_values)
             self.crossover() 
-            self.mutation()  
+            self.mutation()
+
+            print(f"População após a mutação: {self.current_population}")
 
             self.fitness()
             if self.max_known_value is not None and self.current_error < 1e-6:
