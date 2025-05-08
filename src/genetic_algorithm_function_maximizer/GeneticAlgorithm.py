@@ -3,7 +3,7 @@ import math
 import random
 
 class GeneticAlgorithm:
-    def __init__(self, population_size, bounds, mutation_rate, crossover_rate, elitism_count = None, max_known_value = None,
+    def __init__(self, population_size, mutation_rate, crossover_rate, elitism_count = None, max_known_value = None,
                  selection_method='roulette', tournament_size=None, crossover_type='single_point', decimal_precision=1):
         """
         Inicializa os parâmetros do algoritmo genético.
@@ -19,7 +19,7 @@ class GeneticAlgorithm:
         """
 
         self.population_size = population_size
-        self.bounds = bounds
+        self.bounds = [(-3.1, 12.1), (4.1, 5.8)]
         self.mutation_rate = mutation_rate
         self.crossover_rate = crossover_rate
         self.elitism_count = elitism_count
@@ -33,6 +33,7 @@ class GeneticAlgorithm:
         self.mean_error = np.inf if max_known_value is not None else None
         self.decimal_precision = decimal_precision
         self.current_population = None
+        self.stop = None # Callback para parar o algoritmo
 
     def real_function(self):
         """
@@ -237,7 +238,18 @@ class GeneticAlgorithm:
         """
         Implementa a seleção por torneio.
         """
-        raise NotImplementedError("Tournament selection not implemented yet")
+        selected = []
+
+        for _ in range(self.population_size):
+            # Sorteia os indivíduos aleatórios da população de acordo com o tamanho do torneio
+            participants_indices = np.random.choice(len(self.current_population), self.tournament_size, replace=False)
+            participants_fitness = fitness_values[participants_indices]
+            
+            # Seleciona o melhor
+            winner_indice = participants_indices[np.argmax(participants_fitness)]
+            selected.append(self.current_population[winner_indice])
+
+        return np.array(selected)
 
     def crossover(self):
         """
@@ -290,31 +302,59 @@ class GeneticAlgorithm:
                     self.current_population[idx] = individual
         
 
-    def run(self, generations):
+    def run(self, generations, update_callback=None):
         """
         Executa o algoritmo genético por um número definido de gerações.
         
         :param generations: Número de gerações a serem executadas.
         :return: O melhor indivíduo encontrado.
         """
+        elite_individuals = None
         self.current_population = self.initialize_population()
         print(f"População inicial: {self.current_population}")
         print(f"Aptidão da população inicial: {self.fitness()}")
         for _ in range(generations):
+
+            if self.stop and self.stop():
+                break
+
             print(f"Geração {_ + 1}")
             
             # Calcula a aptidão de cada indivíduo, 
             fitness_values = self.fitness()
             print(f"Aptidão da população: {fitness_values}")
 
+            # Elitismo: mantém os melhores indivíduos da geração anterior
+            if self.elitism_count and self.elitism_count > 0:
+                elite_indices = np.argsort(fitness_values)[-self.elitism_count:]
+                elite_individuals = self.current_population[elite_indices]
+
             # Faz a seleção, crossover e mutação
             self.selection(fitness_values)
             self.crossover() 
             self.mutation()
 
-            print(f"População após a mutação: {self.current_population}")
+            if elite_individuals is not None:
+                new_fitness_values = self.real_function()
+                worst_indices = np.argsort(new_fitness_values)[:self.elitism_count]
+                for i, idx in enumerate(worst_indices):
+                    self.current_population[idx] = elite_individuals[i]
+
+            # Atualiza a população com os melhores indivíduos
+
+            print(f"População após a mutação e elitismo: {self.current_population}")
 
             self.fitness()
+
+            if update_callback:
+                update_callback(
+                    generation=_ + 1,
+                    best_individual=self.best_individual,
+                    best_fitness=self.best_fitness,
+                    error=self.current_error if self.current_error is not None else 0
+                )
+
+
             if self.max_known_value is not None and self.current_error < 1e-6:
                 print(f"Encerrando o algoritmo, pois o erro é menor que 1e-6")
                 break     

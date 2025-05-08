@@ -1,6 +1,4 @@
-
-
-from genetic_algorithm_function_maximizer.interface import Interface
+from interface import Interface
 
 
 def main():

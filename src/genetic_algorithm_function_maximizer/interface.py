@@ -5,6 +5,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import threading
 import os
 import numpy as np
+from GeneticAlgorithm import GeneticAlgorithm
 
 class Interface:
     def __init__(self):
@@ -16,6 +17,7 @@ class Interface:
         # Flag para indicar se está executando
         self.is_running = False
         self.stop_flag = False
+        self.ga = None
 
         self.setup_styles()
         self.create_frames()
@@ -74,10 +76,9 @@ class Interface:
     def create_controls(self):
         # Parâmetros do AG
         labels_and_defaults = [
-            ("Tamanho do Cromossomo:", "10"),
             ("Tamanho da População:", "100"),
-            ("Probabilidade de Cruzamento:", "0.8"),
-            ("Probabilidade de Mutação:", "0.1"),
+            ("Probabilidade de Cruzamento:", "0.85"),
+            ("Probabilidade de Mutação:", "0.2"),
             ("Número de Gerações:", "100"),
             ("Tamanho do Elitismo:", "2")
         ]
@@ -93,10 +94,10 @@ class Interface:
             self.entries[text] = entry
 
         # Método de Seleção
-        self.selection_method = tk.StringVar(value="roleta")
+        self.selection_method = tk.StringVar(value="roulette")
         ttk.Label(self.frame_controls, text="Método de Seleção:", style="TLabel").grid(row=6, column=0, padx=5, pady=5, sticky="w")
-        ttk.Radiobutton(self.frame_controls, text="Roleta", variable=self.selection_method, value="roleta").grid(row=6, column=1, padx=5, pady=5, sticky="w")
-        ttk.Radiobutton(self.frame_controls, text="Torneio", variable=self.selection_method, value="torneio").grid(row=7, column=1, padx=5, pady=5, sticky="w")
+        ttk.Radiobutton(self.frame_controls, text="Roleta", variable=self.selection_method, value="roulette").grid(row=6, column=1, padx=5, pady=5, sticky="w")
+        ttk.Radiobutton(self.frame_controls, text="Torneio", variable=self.selection_method, value="tournament").grid(row=7, column=1, padx=5, pady=5, sticky="w")
 
         # Tamanho do Torneio
         ttk.Label(self.frame_controls, text="Tamanho do Torneio:", style="TLabel").grid(row=8, column=0, padx=5, pady=5, sticky="w")
@@ -105,10 +106,10 @@ class Interface:
         self.tournament_size.insert(0, "3")
 
         # Tipo de Cruzamento
-        self.crossover_type = tk.StringVar(value="um_ponto")
+        self.crossover_type = tk.StringVar(value="single_point")
         ttk.Label(self.frame_controls, text="Tipo de Cruzamento:", style="TLabel").grid(row=9, column=0, padx=5, pady=5, sticky="w")
-        ttk.Radiobutton(self.frame_controls, text="Um Ponto", variable=self.crossover_type, value="um_ponto").grid(row=9, column=1, padx=5, pady=5, sticky="w")
-        ttk.Radiobutton(self.frame_controls, text="Dois Pontos", variable=self.crossover_type, value="dois_pontos").grid(row=10, column=1, padx=5, pady=5, sticky="w")
+        ttk.Radiobutton(self.frame_controls, text="Um Ponto", variable=self.crossover_type, value="single_point").grid(row=9, column=1, padx=5, pady=5, sticky="w")
+        ttk.Radiobutton(self.frame_controls, text="Dois Pontos", variable=self.crossover_type, value="double_point").grid(row=10, column=1, padx=5, pady=5, sticky="w")
 
         # Botões de Controle
         btn_start = ttk.Button(
@@ -137,6 +138,7 @@ class Interface:
         self.canvas.get_tk_widget().pack()
 
     def start_algorithm(self):
+
         if self.is_running:
             return
         
@@ -144,7 +146,6 @@ class Interface:
         self.stop_flag = False
         
         # Lê os parâmetros
-        chromosome_size = int(self.entries["Tamanho do Cromossomo:"].get())
         population_size = int(self.entries["Tamanho da População:"].get())
         crossover_prob = float(self.entries["Probabilidade de Cruzamento:"].get())
         mutation_prob = float(self.entries["Probabilidade de Mutação:"].get())
@@ -156,24 +157,23 @@ class Interface:
 
         # Cria a instância do algoritmo genético
         self.ga = GeneticAlgorithm(
-            chromosome_size=chromosome_size,
             population_size=population_size,
-            crossover_prob=crossover_prob,
-            mutation_prob=mutation_prob,
-            generations=generations,
-            elitism_size=elitism_size,
+            crossover_rate=crossover_prob,
+            mutation_rate=mutation_prob,
+            elitism_count=elitism_size,
             tournament_size=tournament_size,
             selection_method=selection_method,
-            crossover_type=crossover_type
+            crossover_type=crossover_type,
+            decimal_precision=4,
         )
 
         # Configura o callback de parada
-        self.ga.should_stop = lambda: self.stop_flag
+        self.ga.stop = lambda: self.stop_flag
 
         # Inicia o algoritmo em uma thread separada
         self.algorithm_thread = threading.Thread(
             target=self.ga.run,
-            args=(self.update_display,),
+            args=(generations,self.update_display),
             daemon=True
         )
         self.algorithm_thread.start()
@@ -188,7 +188,7 @@ class Interface:
         self.best_fitness_label.config(text=f"Melhor Aptidão: {best_fitness:.4f}")
         self.best_individual_label.config(text=f"Melhor Indivíduo: {best_individual}")
         self.error_label.config(text=f"Erro: {error:.2f}%")
-        
+
         # Atualiza o gráfico
         self.ax.clear()
         self.ax.set_title("Função e Melhor Indivíduo")
@@ -196,8 +196,8 @@ class Interface:
         self.ax.set_ylabel("Y")
         
         # Plota a função de Rastrigin
-        x = np.linspace(-5, 5, 100)
-        y = np.linspace(-5, 5, 100)
+        x = np.linspace(-3.1, 12.1, 200)
+        y = np.linspace(4.1, 5.8, 200)
         X, Y = np.meshgrid(x, y)
         Z = 20 + (X**2 - 10*np.cos(2*np.pi*X)) + (Y**2 - 10*np.cos(2*np.pi*Y))
         
