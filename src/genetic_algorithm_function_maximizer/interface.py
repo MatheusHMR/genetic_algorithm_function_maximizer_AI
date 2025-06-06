@@ -163,8 +163,9 @@ class Interface:
             elitism_count=elitism_size,
             tournament_size=tournament_size,
             selection_method=selection_method,
+            max_known_value=38.85,
             crossover_type=crossover_type,
-            decimal_precision=4,
+            decimal_precision=8
         )
 
         # Configura o callback de parada

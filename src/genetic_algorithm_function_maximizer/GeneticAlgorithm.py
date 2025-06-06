@@ -133,7 +133,6 @@ class GeneticAlgorithm:
 
         bits_list = self.get_n_bits(precision)
         
-        # 1) Codifica cada indivíduo para representação binária
         b1 = ''
         b2 = ''
         for i in range(parent1.shape[0]):
@@ -143,13 +142,10 @@ class GeneticAlgorithm:
             b1 += self.real_to_bin(xp1, low, n_bits)
             b2 += self.real_to_bin(xp2, low, n_bits)
 
-        # 2) Escolhe um ponto de corte aleatório
         point = random.randint(1, len(b1) - 1)
         
-        # 3) Realiza o cruzamento
         child_bin = b1[:point] + b2[point:]
         
-        # 4) Decodifica o filho de volta para valores reais
         child = []
         idx = 0 # Começa na posição 0
         for i, (low, _) in enumerate(self.bounds):
@@ -174,7 +170,6 @@ class GeneticAlgorithm:
         # Determina o número de bits necessários para cada variável
         bits_list = self.get_n_bits(self.decimal_precision)
         
-        # 1) Codifica cada indivíduo para representação binária
         b1 = ''
         b2 = ''
         for i in range(parent1.shape[0]):
@@ -184,10 +179,8 @@ class GeneticAlgorithm:
             b1 += self.real_to_bin(xp1, low, n_bits)
             b2 += self.real_to_bin(xp2, low, n_bits)
     
-        # 2) Escolhe dois pontos de corte aleatórios
         a, b = sorted(random.sample(range(1, len(b1)), 2)) # Ordena os pontos para que a seja o menor
         
-        # 3) Realiza o cruzamento
         child_bin = b1[:a] + b2[a:b] + b1[b:]
 
         # Exemplo caso a = 2 e b = 5 e len(b1) = 8
@@ -197,7 +190,6 @@ class GeneticAlgorithm:
         #             ^^|^^^|^^^
         #             b1|b2 |b1
 
-        # 4) Decodifica o filho de volta para valores reais
         child = []
         idx = 0
         for i, (low, _) in enumerate(self.bounds):
@@ -212,7 +204,6 @@ class GeneticAlgorithm:
         """
         Seleciona os indivíduos para reprodução, com base no método definido.
         """
-        # TODO implementar o elitismo
 
         # Seleciona o método de seleção
         if self.selection_method == 'roulette':
