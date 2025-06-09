@@ -106,10 +106,14 @@ class Interface:
         self.tournament_size.insert(0, "3")
 
         # Tipo de Cruzamento
-        self.crossover_type = tk.StringVar(value="single_point")
+        # self.crossover_type = tk.StringVar(value="single_point")
+        # ttk.Label(self.frame_controls, text="Tipo de Cruzamento:", style="TLabel").grid(row=9, column=0, padx=5, pady=5, sticky="w")
+        # ttk.Radiobutton(self.frame_controls, text="Um Ponto", variable=self.crossover_type, value="single_point").grid(row=9, column=1, padx=5, pady=5, sticky="w")
+        # ttk.Radiobutton(self.frame_controls, text="Dois Pontos", variable=self.crossover_type, value="double_point").grid(row=10, column=1, padx=5, pady=5, sticky="w")
+        self.crossover_type = tk.StringVar(value="radcliff")
         ttk.Label(self.frame_controls, text="Tipo de Cruzamento:", style="TLabel").grid(row=9, column=0, padx=5, pady=5, sticky="w")
-        ttk.Radiobutton(self.frame_controls, text="Um Ponto", variable=self.crossover_type, value="single_point").grid(row=9, column=1, padx=5, pady=5, sticky="w")
-        ttk.Radiobutton(self.frame_controls, text="Dois Pontos", variable=self.crossover_type, value="double_point").grid(row=10, column=1, padx=5, pady=5, sticky="w")
+        ttk.Radiobutton(self.frame_controls, text="Radcliff Crossover", variable=self.crossover_type, value="radcliff").grid(row=9, column=1, padx=5, pady=5, sticky="w")
+        ttk.Radiobutton(self.frame_controls, text="Wright Crossover", variable=self.crossover_type, value="wright").grid(row=10, column=1, padx=5, pady=5, sticky="w")
 
         # Botões de Controle
         btn_start = ttk.Button(
@@ -163,9 +167,9 @@ class Interface:
             elitism_count=elitism_size,
             tournament_size=tournament_size,
             selection_method=selection_method,
-            max_known_value=38.85,
+            # max_known_value=38.85,
             crossover_type=crossover_type,
-            decimal_precision=8
+            # decimal_precision=8
         )
 
         # Configura o callback de parada
