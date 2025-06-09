@@ -4,7 +4,7 @@ import random
 
 class GeneticAlgorithm:
     def __init__(self, population_size, mutation_rate, crossover_rate, elitism_count = None, max_known_value = None,
-                 selection_method='roulette', tournament_size=None, crossover_type='single_point', decimal_precision=1):
+                 selection_method='roulette', tournament_size=None, crossover_type='radcliff', decimal_precision=1):
         """
         Inicializa os parâmetros do algoritmo genético.
 
@@ -52,6 +52,16 @@ class GeneticAlgorithm:
             for _ in range(self.population_size)
         ])
     
+    def initialize_population_with_random_values(self):
+        """
+        Inicializa a população com valores aleatórios usando a fórmula x = a + c*(b - a),
+        onde c é um valor aleatório entre 0 e 1.
+        """
+        return np.array([
+            [low + np.random.random() * (high - low) for (low, high) in self.bounds]
+            for _ in range(self.population_size)
+        ])
+
     def fitness(self):
         """
         Calcula a aptidão (fitness) da população.
@@ -199,6 +209,48 @@ class GeneticAlgorithm:
             idx += n_bits
 
         return self.clip_individual(np.array(child))
+    
+
+    def radcliff_crossover(self, parent1, parent2):
+        """
+        Realiza o cruzamento de Radcliff entre dois indivíduos.
+        """
+        
+        for i in range(parent1.shape[0]):
+            xp1, xp2 = parent1[i], parent2[i]
+            beta = random.random()
+            child1 = beta * xp1 + (1 - beta) * xp2
+            child2 = (1 - beta) * xp1 + beta * xp2
+
+        return np.array([child1, child2])
+
+    def wright_crossover(self, parent1, parent2):
+        """
+        Realiza o cruzamento de Wright entre dois indivíduos.
+        Gera 3 filhos e retorna os 2 melhores, ou mantém os pais se necessário.
+        Sempre retorna exatamente 2 indivíduos.
+        """
+        # TODO: Implementar a geração dos 3 filhos
+        wright_children = None  # Placeholder para os 3 filhos que serão gerados
+
+        if wright_children is None:
+            # Se nenhum filho é válido, mantém os pais
+            return np.array([parent1, parent2])
+        elif len(wright_children) == 1:
+            # Se apenas um filho é válido, mantém o melhor pai e o filho
+            parent_fitness = self.real_function()
+            if parent_fitness[0] > parent_fitness[1]:
+                return np.array([parent1, wright_children[0]])
+            else:
+                return np.array([wright_children[0], parent2])
+        elif len(wright_children) == 2:
+            # Se dois filhos são válidos, mantém os dois filhos
+            return np.array(wright_children)
+        else:  # len(wright_children) == 3
+            # Se três filhos são válidos, mantém os dois melhores
+            children_fitness = self.real_function()
+            best_indices = np.argsort(children_fitness)[-2:]
+            return np.array([wright_children[i] for i in best_indices])
 
     def selection(self, fitness_values):
         """
@@ -257,16 +309,20 @@ class GeneticAlgorithm:
                 if self.crossover_type == 'single_point':
                     child1 = self.single_point_binary_crossover(parent1, parent2)
                     child2 = self.single_point_binary_crossover(parent2, parent1)       
+                    children.extend([child1, child2])
                 elif self.crossover_type == 'double_point':
                     child1 = self.double_point_binary_crossover(parent1, parent2)
                     child2 = self.double_point_binary_crossover(parent2, parent1)
+                    children.extend([child1, child2])
+                elif self.crossover_type == 'radcliff':
+                    children.extend(self.radcliff_crossover(parent1, parent2))
+                elif self.crossover_type == 'wright':
+                    children.extend(self.wright_crossover(parent1, parent2))
                 else:
                     raise ValueError("Invalid crossover type")
-                children.extend([child1, child2])
             else:
                 children.extend([parent1, parent2])
             i += 2
-        self.current_population = np.array(children)
 
         if n % 2 == 1:
             children.append(self.current_population[-1])
