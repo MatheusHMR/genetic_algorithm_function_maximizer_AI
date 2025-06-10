@@ -167,7 +167,7 @@ class Interface:
             elitism_count=elitism_size,
             tournament_size=tournament_size,
             selection_method=selection_method,
-            # max_known_value=38.85,
+            min_known_value=3.86,
             crossover_type=crossover_type,
             # decimal_precision=8
         )
@@ -189,8 +189,11 @@ class Interface:
 
     def update_display(self, generation, best_individual, best_fitness, error):
         """Atualiza a interface com os resultados do algoritmo"""
+        # Calcula o valor real da função (100 - fitness)
+        real_value = -best_fitness
+        
         self.generation_label.config(text=f"Geração: {generation}")
-        self.best_fitness_label.config(text=f"Melhor Aptidão: {best_fitness:.4f}")
+        self.best_fitness_label.config(text=f"Valor da Função: {real_value:.4f}")
         self.best_individual_label.config(text=f"Melhor Indivíduo: {best_individual}")
         self.error_label.config(text=f"Erro: {error:.2f}%")
 
@@ -200,11 +203,11 @@ class Interface:
         self.ax.set_xlabel("X")
         self.ax.set_ylabel("Y")
         
-        # Plota a função de Rastrigin
-        x = np.linspace(-3.1, 12.1, 200)
-        y = np.linspace(4.1, 5.8, 200)
+        # Plota a função
+        x = np.linspace(-3.1, 12.1, 300)
+        y = np.linspace(4.1, 5.8, 300)
         X, Y = np.meshgrid(x, y)
-        Z = 20 + (X**2 - 10*np.cos(2*np.pi*X)) + (Y**2 - 10*np.cos(2*np.pi*Y))
+        Z = 21.5 + X * np.sin(4 * np.pi * X) + Y * np.sin(20 * np.pi * Y)
         
         # Plota a superfície
         self.ax.contourf(X, Y, Z, levels=20, cmap='viridis')

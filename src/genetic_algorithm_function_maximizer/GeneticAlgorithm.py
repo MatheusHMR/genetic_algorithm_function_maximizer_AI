@@ -3,7 +3,7 @@ import math
 import random
 
 class GeneticAlgorithm:
-    def __init__(self, population_size, mutation_rate, crossover_rate, elitism_count = None, max_known_value = None,
+    def __init__(self, population_size, mutation_rate, crossover_rate, elitism_count = None, min_known_value = None,
                  selection_method='roulette', tournament_size=None, crossover_type='radcliff', decimal_precision=1):
         """
         Inicializa os parâmetros do algoritmo genético.
@@ -26,20 +26,23 @@ class GeneticAlgorithm:
         self.selection_method = selection_method
         self.tournament_size = tournament_size
         self.crossover_type = crossover_type
-        self.max_known_value = max_known_value
+        self.min_known_value = min_known_value
         self.best_individual = None
         self.best_fitness = None
-        self.current_error = np.inf if max_known_value is not None else None
-        self.mean_error = np.inf if max_known_value is not None else None
+        self.current_error = np.inf if min_known_value is not None else None
+        self.mean_error = np.inf if min_known_value is not None else None
         self.decimal_precision = decimal_precision
         self.current_population = None
         self.stop = None # Callback para parar o algoritmo
 
-    def real_function(self):
+    def real_function(self, population=None):
         """
         Função real a ser maximizada.
         """
-        return 21.5 + self.current_population[:, 0] * np.sin(4 * np.pi * self.current_population[:, 0]) + self.current_population[:, 1] * np.sin(20 * np.pi * self.current_population[:, 1])
+        if population is None:
+            population = self.current_population
+        
+        return 21.5 + population[:, 0] * np.sin(4 * np.pi * population[:, 0]) + population[:, 1] * np.sin(20 * np.pi * population[:, 1])
 
     def initialize_population(self):
         """
@@ -67,162 +70,43 @@ class GeneticAlgorithm:
         Calcula a aptidão (fitness) da população.
         Atualiza o melhor indivíduo, o erro do melhor e o erro médio da população.
         """
-        fitness_values = self.real_function()
+        fitness_values = -self.real_function()
         # Índice do melhor indivíduo
         best_idx = np.argmax(fitness_values)
         self.best_individual = self.current_population[best_idx]
         self.best_fitness = fitness_values[best_idx]
 
-        if self.max_known_value is not None:
+        if self.min_known_value is not None:
             # Erro do melhor indivíduo
-            self.current_error = self.max_known_value - self.best_fitness
+            self.current_error = np.abs(self.min_known_value + self.best_fitness)
             # print(f"Erro do melhor indivíduo: {self.current_error}")
             # Erro médio da população
-            self.mean_error = np.mean(self.max_known_value - fitness_values)
+            self.mean_error = np.mean(np.abs(self.min_known_value + fitness_values))
             # print(f"Erro médio da população: {self.mean_error}")
         else:
             self.current_error = None
             self.mean_error = None
 
         return fitness_values
-
-    def get_n_bits(self, precision):
-        """Calcula quantos bits são necessários para cada variável.
-
-        :param precision: Precisão desejada para a conversão.
-
-        :return: Lista com o número de bits necessários para cada variável.
-        """
-        bits = []
-        for low, high in self.bounds:
-            span = int((high - low) * (10**precision))
-            bits.append(math.ceil(math.log2(span + 1)))
-        return bits
-
-    def real_to_bin(self, x, low, n_bits):
-        """Converte valor real x para inteiro com precisão e depois para string binária.
-
-        :param x: Valor real a ser convertido.
-        :param low: Limite inferior da variável.
-        :param n_bits: Número de bits disponíveis para a representação.
-
-        :return: String binária representando o valor real.
-        """
-        factor = 10**self.decimal_precision
-        x_int = int(round((x - low) * factor))
-        return format(x_int, f'0{n_bits}b')
-
-    def bin_to_real(self, bstr, low):
-        """Converte string binária de volta para real, aplicando offset e precisão.
-
-        :param bstr: String binária a ser convertida.
-        :param low: Limite inferior da variável.
-        :param n_bits: Número de bits disponíveis para a representação.
-
-        :return: Valor real convertido.
-        """
-        factor = 10**self.decimal_precision
-        return int(bstr, 2) / factor + low
-    
-    def clip_individual(self, individual):
-        """
-        Clipping do indivíduo para que ele não saia dos limites do problema.
-        """
-
-        # Fazer dessa forma habilita que o crossover ajuste o domínio para o problema independentemente da quantidade de variáveis
-        lower_bounds = np.array([low for low, _ in self.bounds]) 
-        upper_bounds = np.array([high for _, high in self.bounds])
-
-        return np.clip(individual, lower_bounds, upper_bounds)
-    
-    def single_point_binary_crossover(self, parent1, parent2):
-        """
-        Realiza o cruzamento de ponto único entre dois indivíduos na representação binária.
-        """
-        precision = self.decimal_precision
-
-        bits_list = self.get_n_bits(precision)
-        
-        b1 = ''
-        b2 = ''
-        for i in range(parent1.shape[0]):
-            xp1, xp2 = parent1[i], parent2[i]
-            low, _ = self.bounds[i]
-            n_bits = bits_list[i]
-            b1 += self.real_to_bin(xp1, low, n_bits)
-            b2 += self.real_to_bin(xp2, low, n_bits)
-
-        point = random.randint(1, len(b1) - 1)
-        
-        child_bin = b1[:point] + b2[point:]
-        
-        child = []
-        idx = 0 # Começa na posição 0
-        for i, (low, _) in enumerate(self.bounds):
-            n_bits = bits_list[i]
-            snippet = child_bin[idx:idx+n_bits]
-            child.append(self.bin_to_real(snippet, low))
-            idx += n_bits
-
-        return self.clip_individual(np.array(child))
-
-    def double_point_binary_crossover(self, parent1, parent2):
-
-        """
-        Realiza o cruzamento de dois pontos entre dois indivíduos na representação binária.
-        
-        :param p1: Primeiro pai (array de valores reais)
-        :param p2: Segundo pai (array de valores reais)
-        :param bounds: Lista de tuplas com os limites (min, max) de cada variável
-        :param precision: Precisão decimal para a codificação binária
-        :return: Filho resultante do cruzamento (array de valores reais)
-        """
-        # Determina o número de bits necessários para cada variável
-        bits_list = self.get_n_bits(self.decimal_precision)
-        
-        b1 = ''
-        b2 = ''
-        for i in range(parent1.shape[0]):
-            xp1, xp2 = parent1[i], parent2[i]
-            low, _ = self.bounds[i]
-            n_bits = bits_list[i]
-            b1 += self.real_to_bin(xp1, low, n_bits)
-            b2 += self.real_to_bin(xp2, low, n_bits)
-    
-        a, b = sorted(random.sample(range(1, len(b1)), 2)) # Ordena os pontos para que a seja o menor
-        
-        child_bin = b1[:a] + b2[a:b] + b1[b:]
-
-        # Exemplo caso a = 2 e b = 5 e len(b1) = 8
-        # b1 = 11100011
-        # b2 = 00111100
-        # child_bin = 11|111|011
-        #             ^^|^^^|^^^
-        #             b1|b2 |b1
-
-        child = []
-        idx = 0
-        for i, (low, _) in enumerate(self.bounds):
-            n_bits = bits_list[i]
-            snippet = child_bin[idx:idx+n_bits]
-            child.append(self.bin_to_real(snippet, low))
-            idx += n_bits
-
-        return self.clip_individual(np.array(child))
     
 
     def radcliff_crossover(self, parent1, parent2):
         """
         Realiza o cruzamento de Radcliff entre dois indivíduos.
+        Usa uma combinação convexa com beta dinâmico para cada variável.
         """
+        child1 = np.zeros_like(parent1)
+        child2 = np.zeros_like(parent2)
         
         for i in range(parent1.shape[0]):
-            xp1, xp2 = parent1[i], parent2[i]
+            # Beta diferente para cada variável
             beta = random.random()
-            child1 = beta * xp1 + (1 - beta) * xp2
-            child2 = (1 - beta) * xp1 + beta * xp2
+            # Combinação convexa
+            child1[i] = beta * parent1[i] + (1 - beta) * parent2[i]
+            child2[i] = (1 - beta) * parent1[i] + beta * parent2[i]
 
-        return np.array([child1, child2])
+
+        return [child1, child2] 
 
     def wright_crossover(self, parent1, parent2):
         """
@@ -230,27 +114,59 @@ class GeneticAlgorithm:
         Gera 3 filhos e retorna os 2 melhores, ou mantém os pais se necessário.
         Sempre retorna exatamente 2 indivíduos.
         """
-        # TODO: Implementar a geração dos 3 filhos
-        wright_children = None  # Placeholder para os 3 filhos que serão gerados
-
-        if wright_children is None:
-            # Se nenhum filho é válido, mantém os pais
+        
+        # Gera três filhos diferentes
+        child1 = np.zeros_like(parent1)
+        child2 = np.zeros_like(parent1)
+        child3 = np.zeros_like(parent1)
+        
+        # Primeiro filho: média dos pais
+        child1 = 0.5 * (parent1 + parent2)
+        
+        # Segundo filho: combinação com beta aleatório
+        beta = random.random()
+        child2 = beta * parent1 + (1 - beta) * parent2
+        
+        # Terceiro filho: combinação com beta diferente para cada variável
+        for i in range(parent1.shape[0]):
+            beta = random.random()
+            child3[i] = beta * parent1[i] + (1 - beta) * parent2[i]
+        
+        # Lista para armazenar os filhos válidos
+        valid_children = []
+        
+        # Verifica cada filho e adiciona à lista se estiver dentro dos limites
+        if (self.bounds[0][0] <= child1[0] <= self.bounds[0][1] and 
+            self.bounds[1][0] <= child1[1] <= self.bounds[1][1]):
+            valid_children.append(child1)
+            
+        if (self.bounds[0][0] <= child2[0] <= self.bounds[0][1] and 
+            self.bounds[1][0] <= child2[1] <= self.bounds[1][1]):
+            valid_children.append(child2)
+            
+        if (self.bounds[0][0] <= child3[0] <= self.bounds[0][1] and 
+            self.bounds[1][0] <= child3[1] <= self.bounds[1][1]):
+            valid_children.append(child3)
+        
+        # Se não houver filhos válidos, retorna os pais
+        if len(valid_children) == 0:
             return np.array([parent1, parent2])
-        elif len(wright_children) == 1:
-            # Se apenas um filho é válido, mantém o melhor pai e o filho
-            parent_fitness = self.real_function()
+        # Se houver apenas um filho válido, retorna ele e o melhor pai
+        elif len(valid_children) == 1:
+            parent_fitness = self.real_function(np.array([parent1, parent2]))
             if parent_fitness[0] > parent_fitness[1]:
-                return np.array([parent1, wright_children[0]])
+                return np.array([parent1, valid_children[0]])
             else:
-                return np.array([wright_children[0], parent2])
-        elif len(wright_children) == 2:
-            # Se dois filhos são válidos, mantém os dois filhos
-            return np.array(wright_children)
-        else:  # len(wright_children) == 3
-            # Se três filhos são válidos, mantém os dois melhores
-            children_fitness = self.real_function()
+                return np.array([valid_children[0], parent2])
+        # Se houver dois filhos válidos, retorna eles
+        elif len(valid_children) == 2:
+            return np.array(valid_children)
+        # Se houver três filhos válidos, retorna os dois melhores
+        else:
+            valid_children = np.array(valid_children)
+            children_fitness = self.real_function(valid_children)
             best_indices = np.argsort(children_fitness)[-2:]
-            return np.array([wright_children[i] for i in best_indices])
+            return valid_children[best_indices]
 
     def selection(self, fitness_values):
         """
@@ -306,15 +222,7 @@ class GeneticAlgorithm:
             parent1 = self.current_population[i]
             parent2 = self.current_population[i+1]
             if random.random() < self.crossover_rate:
-                if self.crossover_type == 'single_point':
-                    child1 = self.single_point_binary_crossover(parent1, parent2)
-                    child2 = self.single_point_binary_crossover(parent2, parent1)       
-                    children.extend([child1, child2])
-                elif self.crossover_type == 'double_point':
-                    child1 = self.double_point_binary_crossover(parent1, parent2)
-                    child2 = self.double_point_binary_crossover(parent2, parent1)
-                    children.extend([child1, child2])
-                elif self.crossover_type == 'radcliff':
+                if self.crossover_type == 'radcliff':
                     children.extend(self.radcliff_crossover(parent1, parent2))
                 elif self.crossover_type == 'wright':
                     children.extend(self.wright_crossover(parent1, parent2))
@@ -334,19 +242,10 @@ class GeneticAlgorithm:
         """
 
         for idx, individual in enumerate(self.current_population):
-            for i in range(len(individual)):
-                if random.random() < self.mutation_rate:
-                    binary_individual = list(self.real_to_bin(
-                        individual[i], 
-                        self.bounds[i][0], 
-                        self.get_n_bits(self.decimal_precision)[i]
-                    ))
-                    point = random.randint(0, len(binary_individual) - 1)
-                    binary_individual[point] = '1' if binary_individual[point] == '0' else '0'
-                    binary_individual = ''.join(binary_individual)
-                    individual[i] = self.bin_to_real(binary_individual, self.bounds[i][0])
-                    individual = self.clip_individual(individual)
-                    self.current_population[idx] = individual
+            if random.random() < self.mutation_rate:
+                i  = random.randint(0, len(individual) - 1)
+                individual[i] = self.bounds[i][0] + np.random.random() * (self.bounds[i][1] - self.bounds[i][0])
+                self.current_population[idx] = individual
         
 
     def run(self, generations, update_callback=None):
@@ -398,11 +297,11 @@ class GeneticAlgorithm:
                     generation=_ + 1,
                     best_individual=self.best_individual,
                     best_fitness=self.best_fitness,
-                    error=self.current_error if self.current_error is not None else 0
+                    error = self.current_error if self.current_error is not None else 0
                 )
 
 
-            if self.max_known_value is not None and self.current_error < 1e-6:
+            if self.min_known_value is not None and self.current_error < 1e-6:
                 print(f"Encerrando o algoritmo, pois o erro é menor que 1e-6")
                 break     
 
