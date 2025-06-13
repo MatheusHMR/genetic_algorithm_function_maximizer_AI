@@ -44,17 +44,6 @@ class GeneticAlgorithm:
         
         return 21.5 + population[:, 0] * np.sin(4 * np.pi * population[:, 0]) + population[:, 1] * np.sin(20 * np.pi * population[:, 1])
 
-    def initialize_population(self):
-        """
-        Cria a população inicial de indivíduos.
-        """
-
-        # Inicialização
-        return np.array([
-            [np.round(np.random.uniform(low, high), self.decimal_precision) for (low, high) in self.bounds]
-            for _ in range(self.population_size)
-        ])
-    
     def initialize_population_with_random_values(self):
         """
         Inicializa a população com valores aleatórios usando a fórmula x = a + c*(b - a),
@@ -256,19 +245,19 @@ class GeneticAlgorithm:
         :return: O melhor indivíduo encontrado.
         """
         elite_individuals = None
-        self.current_population = self.initialize_population()
-        print(f"População inicial: {self.current_population}")
-        print(f"Aptidão da população inicial: {self.fitness()}")
+        self.current_population = self.initialize_population_with_random_values()
+        #print(f"População inicial: {self.current_population}")
+        #print(f"Aptidão da população inicial: {self.fitness()}")
         for _ in range(generations):
 
             if self.stop and self.stop():
                 break
 
-            print(f"Geração {_ + 1}")
+            #print(f"Geração {_ + 1}")
             
             # Calcula a aptidão de cada indivíduo, 
             fitness_values = self.fitness()
-            print(f"Aptidão da população: {fitness_values}")
+            #print(f"Aptidão da população: {fitness_values}")
 
             # Elitismo: mantém os melhores indivíduos da geração anterior
             if self.elitism_count and self.elitism_count > 0:
@@ -288,7 +277,7 @@ class GeneticAlgorithm:
 
             # Atualiza a população com os melhores indivíduos
 
-            print(f"População após a mutação e elitismo: {self.current_population}")
+            #print(f"População após a mutação e elitismo: {self.current_population}")
 
             self.fitness()
 
@@ -302,7 +291,7 @@ class GeneticAlgorithm:
 
 
             if self.min_known_value is not None and self.current_error < 1e-6:
-                print(f"Encerrando o algoritmo, pois o erro é menor que 1e-6")
+                #print(f"Encerrando o algoritmo, pois o erro é menor que 1e-6")
                 break     
 
         return self.best_individual, self.best_fitness
